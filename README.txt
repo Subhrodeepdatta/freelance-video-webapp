@@ -1,6 +1,6 @@
 Subh Stories CRM – Next.js + Supabase
 
-Tables to create in Supabase (SQL editor):
+TABLES (initial create if you don't have them yet):
 
 -- CLIENTS
 create table if not exists public.clients (
@@ -21,11 +21,18 @@ create table if not exists public.projects (
   type text,
   deadline date,
   cost numeric,
-  status text,
+  work_status text,      -- not_started / editing / review / delivered / archived
+  payment_status text,   -- unpaid / partial / paid
+  advance numeric,       -- advance amount received
   file_links text,
   notes text,
   created_at timestamp with time zone default now()
 );
 
-RLS (for simplest personal use) can be DISABLED on both tables in the Supabase UI.
-For more secure setup you can enable RLS and add policies based on auth.uid().
+If you already created `projects` before, you can add the new columns like this:
+
+alter table public.projects add column if not exists work_status text;
+alter table public.projects add column if not exists payment_status text;
+alter table public.projects add column if not exists advance numeric default 0;
+
+For simple personal use, you can DISABLE RLS on these tables in Supabase UI.

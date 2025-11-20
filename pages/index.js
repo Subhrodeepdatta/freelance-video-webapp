@@ -6,52 +6,55 @@ import 'jspdf-autotable';
 import { supabase } from '@/lib/supabaseClient';
 import { useSupabaseAuth } from '@/lib/useSupabaseAuth';
 
-const STATUSES = ['pending', 'editing', 'delivered', 'paid'];
+const WORK_STATUSES = ['not_started', 'editing', 'review', 'delivered', 'archived'];
+const PAYMENT_STATUSES = ['unpaid', 'partial', 'paid'];
 
 const containerStyle = {
   display: 'flex',
   minHeight: '100vh',
-  background: 'radial-gradient(circle at top, #191942 0, #050510 40%, #02020a 100%)',
-  color: '#f0f0f0',
+  background: 'radial-gradient(circle at top, #fbe9d4 0, #f7f0e5 40%, #f3e7d8 100%)',
+  color: '#2b2116',
   fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 };
 
 const sidebarStyle = {
-  width: 290,
-  borderRight: '1px solid rgba(80,80,150,0.6)',
-  padding: 16,
+  width: 280,
+  borderRight: '1px solid rgba(210,182,130,0.7)',
+  padding: 18,
   boxSizing: 'border-box',
   display: 'flex',
   flexDirection: 'column',
-  gap: 12
+  gap: 14,
+  background: 'rgba(250,242,230,0.9)',
+  backdropFilter: 'blur(6px)'
 };
 
 const mainStyle = {
   flex: 1,
-  padding: 16,
+  padding: 18,
   boxSizing: 'border-box',
   display: 'flex',
   flexDirection: 'column',
   gap: 12
 };
 
-const topBarStyle = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: 4
-};
-
 const cardStyle = {
-  background: 'rgba(6,6,22,0.96)',
+  background: '#fffaf2',
   borderRadius: 14,
   padding: '12px 14px',
-  boxShadow: '0 18px 40px rgba(0,0,0,0.55)',
-  border: '1px solid rgba(130,130,255,0.18)'
+  boxShadow: '0 14px 30px rgba(150,120,70,0.16)',
+  border: '1px solid rgba(210,182,130,0.75)'
+};
+
+const softCardStyle = {
+  background: '#fffdf7',
+  borderRadius: 12,
+  padding: '10px 12px',
+  border: '1px solid rgba(223,201,155,0.7)'
 };
 
 const buttonStyle = {
-  background: 'linear-gradient(135deg,#5b8cff,#a26bff)',
+  background: 'linear-gradient(135deg,#d4a85f,#c07b2a)',
   border: 'none',
   borderRadius: 999,
   padding: '7px 16px',
@@ -60,13 +63,23 @@ const buttonStyle = {
   fontSize: 13,
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 6
+  gap: 6,
+  boxShadow: '0 8px 18px rgba(173, 126, 54, 0.35)'
 };
 
 const subtleButtonStyle = {
   ...buttonStyle,
-  background: 'rgba(255,255,255,0.03)',
-  border: '1px solid rgba(255,255,255,0.08)'
+  background: 'rgba(255,255,255,0.7)',
+  color: '#7b5523',
+  boxShadow: 'none',
+  border: '1px solid rgba(210,182,130,0.9)'
+};
+
+const dangerButtonStyle = {
+  ...subtleButtonStyle,
+  color: '#8a1b1b',
+  border: '1px solid rgba(196,72,60,0.7)',
+  background: 'rgba(255,238,236,0.9)'
 };
 
 const inputStyle = {
@@ -74,14 +87,14 @@ const inputStyle = {
   padding: '7px 9px',
   marginBottom: 8,
   borderRadius: 9,
-  border: '1px solid rgba(80,80,150,0.8)',
-  background: 'rgba(4,4,18,0.96)',
-  color: '#f0f0f0',
+  border: '1px solid rgba(191,161,110,0.9)',
+  background: '#fffdf7',
+  color: '#2b2116',
   fontSize: 13,
   boxSizing: 'border-box'
 };
 
-const labelStyle = { fontSize: 11, opacity: 0.75, marginBottom: 2 };
+const labelStyle = { fontSize: 11, opacity: 0.8, marginBottom: 2 };
 
 function formatDate(d) {
   if (!d) return '-';
@@ -92,6 +105,21 @@ function formatDate(d) {
   } catch {
     return d;
   }
+}
+
+function calcAmounts(project) {
+  const cost = project.cost || 0;
+  const advance = project.advance || 0;
+  let received = 0;
+  if (project.payment_status === 'paid') {
+    received = cost;
+  } else if (project.payment_status === 'partial') {
+    received = advance;
+  } else {
+    received = 0;
+  }
+  const pending = Math.max(cost - received, 0);
+  return { cost, advance, received, pending };
 }
 
 export default function Home() {
@@ -116,7 +144,9 @@ export default function Home() {
     type: '',
     deadline: '',
     cost: '',
-    status: 'pending',
+    work_status: 'not_started',
+    payment_status: 'unpaid',
+    advance: '',
     file_links: '',
     notes: ''
   });
@@ -126,19 +156,18 @@ export default function Home() {
   const [savingClient, setSavingClient] = useState(false);
   const [savingProject, setSavingProject] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentFilter, setPaymentFilter] = useState('all');
   const [searchClient, setSearchClient] = useState('');
-  const [globalStats, setGlobalStats] = useState({ total: 0, paid: 0, pending: 0 });
+  const [globalStats, setGlobalStats] = useState({ total: 0, received: 0, pending: 0 });
 
   const selectedClient = clients.find(c => c.id === selectedClientId) || null;
 
-  // Redirect to login if not authed
   useEffect(() => {
     if (!authLoading && !session) {
       router.replace('/login');
     }
   }, [authLoading, session, router]);
 
-  // Load data once we have a session
   useEffect(() => {
     if (!session) return;
     loadClients();
@@ -174,22 +203,22 @@ export default function Home() {
   async function loadGlobalStats() {
     const { data, error } = await supabase
       .from('projects')
-      .select('cost,status');
+      .select('cost, advance, payment_status');
 
     if (error) {
       console.error('Failed to load global stats', error);
       return;
     }
     let total = 0;
-    let paid = 0;
+    let received = 0;
     let pending = 0;
     (data || []).forEach(p => {
-      const cost = p.cost || 0;
+      const { cost, received: rcvd, pending: pend } = calcAmounts(p);
       total += cost;
-      if (p.status === 'paid') paid += cost;
-      else pending += cost;
+      received += rcvd;
+      pending += pend;
     });
-    setGlobalStats({ total, paid, pending });
+    setGlobalStats({ total, received, pending });
   }
 
   async function loadProjects(clientId) {
@@ -224,7 +253,9 @@ export default function Home() {
       type: '',
       deadline: '',
       cost: '',
-      status: 'pending',
+      work_status: 'not_started',
+      payment_status: 'unpaid',
+      advance: '',
       file_links: '',
       notes: ''
     });
@@ -329,7 +360,9 @@ export default function Home() {
       type: p.type || '',
       deadline: p.deadline ? formatDate(p.deadline) : '',
       cost: p.cost != null ? String(p.cost) : '',
-      status: p.status || 'pending',
+      work_status: p.work_status || 'not_started',
+      payment_status: p.payment_status || 'unpaid',
+      advance: p.advance != null ? String(p.advance) : '',
       file_links: p.file_links || '',
       notes: p.notes || ''
     });
@@ -352,7 +385,9 @@ export default function Home() {
       type: projectForm.type || null,
       deadline: projectForm.deadline || null,
       cost: projectForm.cost ? Number(projectForm.cost) : 0,
-      status: projectForm.status || 'pending',
+      work_status: projectForm.work_status || 'not_started',
+      payment_status: projectForm.payment_status || 'unpaid',
+      advance: projectForm.advance ? Number(projectForm.advance) : 0,
       file_links: projectForm.file_links || null,
       notes: projectForm.notes || null
     };
@@ -404,19 +439,16 @@ export default function Home() {
   }
 
   function getClientStats() {
-    let totalRevenue = 0;
-    let totalPaid = 0;
-    let totalPending = 0;
+    let total = 0;
+    let received = 0;
+    let pending = 0;
     projects.forEach(p => {
-      const cost = p.cost || 0;
-      totalRevenue += cost;
-      if (p.status === 'paid') {
-        totalPaid += cost;
-      } else {
-        totalPending += cost;
-      }
+      const amounts = calcAmounts(p);
+      total += amounts.cost;
+      received += amounts.received;
+      pending += amounts.pending;
     });
-    return { totalRevenue, totalPaid, totalPending };
+    return { total, received, pending };
   }
 
   const stats = getClientStats();
@@ -432,26 +464,43 @@ export default function Home() {
   }, [clients, searchClient]);
 
   const filteredProjects = useMemo(() => {
-    if (statusFilter === 'all') return projects;
-    return projects.filter(p => p.status === statusFilter);
-  }, [projects, statusFilter]);
+    return projects.filter(p => {
+      const statusOk = statusFilter === 'all' || p.work_status === statusFilter;
+      const payOk = paymentFilter === 'all' || p.payment_status === paymentFilter;
+      return statusOk && payOk;
+    });
+  }, [projects, statusFilter, paymentFilter]);
 
   const upcomingDeadlines = useMemo(() => {
     const today = new Date();
     return projects
-      .filter(p => p.deadline && p.status !== 'paid')
+      .filter(p => p.deadline && p.payment_status !== 'paid')
       .map(p => ({ ...p, deadlineDate: new Date(p.deadline) }))
       .filter(p => !Number.isNaN(p.deadlineDate.getTime()) && p.deadlineDate >= today)
       .sort((a, b) => a.deadlineDate - b.deadlineDate)
       .slice(0, 3);
   }, [projects]);
 
-  function statusBadgeStyle(status) {
-    let bg = 'rgba(255,255,255,0.06)';
-    if (status === 'paid') bg = 'rgba(0,200,120,0.22)';
-    else if (status === 'delivered') bg = 'rgba(0,160,255,0.18)';
-    else if (status === 'editing') bg = 'rgba(200,160,0,0.18)';
-    else if (status === 'pending') bg = 'rgba(255,160,0,0.15)';
+  function workBadgeStyle(status) {
+    let bg = 'rgba(240,200,140,0.4)';
+    if (status === 'editing') bg = 'rgba(247,210,140,0.6)';
+    if (status === 'review') bg = 'rgba(183,196,115,0.5)';
+    if (status === 'delivered') bg = 'rgba(186,214,153,0.6)';
+    if (status === 'archived') bg = 'rgba(210,210,210,0.6)';
+    return {
+      padding: '2px 9px',
+      borderRadius: 999,
+      fontSize: 11,
+      textTransform: 'capitalize',
+      background: bg
+    };
+  }
+
+  function paymentBadgeStyle(status) {
+    let bg = 'rgba(255,230,180,0.6)';
+    if (status === 'unpaid') bg = 'rgba(255,210,196,0.7)';
+    if (status === 'partial') bg = 'rgba(255,233,180,0.9)';
+    if (status === 'paid') bg = 'rgba(188,225,174,0.95)';
     return {
       padding: '2px 9px',
       borderRadius: 999,
@@ -474,17 +523,24 @@ export default function Home() {
     const now = new Date().toLocaleString();
     doc.text(`Exported ${now}`, 14, 24);
 
-    const rows = filteredProjects.map(p => [
-      p.name,
-      p.type || '',
-      p.cost != null ? p.cost.toString() : '0',
-      p.status,
-      p.deadline ? formatDate(p.deadline) : ''
-    ]);
+    const rows = filteredProjects.map(p => {
+      const { cost, advance, received, pending } = calcAmounts(p);
+      return [
+        p.name,
+        p.type || '',
+        cost.toString(),
+        advance.toString(),
+        received.toString(),
+        pending.toString(),
+        p.work_status || '',
+        p.payment_status || '',
+        p.deadline ? formatDate(p.deadline) : ''
+      ];
+    });
 
     doc.autoTable({
       startY: 30,
-      head: [['Project', 'Type', 'Cost (₹)', 'Status', 'Deadline']],
+      head: [['Project', 'Type', 'Budget', 'Advance', 'Received', 'Pending', 'Work', 'Payment', 'Deadline']],
       body: rows
     });
 
@@ -510,40 +566,32 @@ export default function Home() {
     <div style={containerStyle}>
       {/* SIDEBAR */}
       <aside style={sidebarStyle}>
-        <div style={topBarStyle}>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 600 }}>Subh Stories</div>
-            <div style={{ fontSize: 11, opacity: 0.65 }}>Studio CRM · Web</div>
-          </div>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 650 }}>Subh Stories</div>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>Studio CRM · Admin</div>
         </div>
 
-        <div style={{ fontSize: 11, opacity: 0.78, marginBottom: 4 }}>
+        <div style={{ fontSize: 11, opacity: 0.78 }}>
           Logged in as <span style={{ fontWeight: 500 }}>{userEmail}</span>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
           <input
             style={{ ...inputStyle, marginBottom: 0, fontSize: 12 }}
             placeholder="Search clients…"
             value={searchClient}
             onChange={e => setSearchClient(e.target.value)}
           />
-          <button style={{ ...buttonStyle, padding: '6px 10px', fontSize: 12 }} onClick={startCreateClient}>
+          <button
+            type="button"
+            style={{ ...buttonStyle, padding: '6px 10px', fontSize: 12 }}
+            onClick={startCreateClient}
+          >
             + New
           </button>
         </div>
 
-        <div
-          style={{
-            ...cardStyle,
-            flex: 1,
-            padding: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-            background: 'rgba(5,5,22,0.96)'
-          }}
-        >
+        <div style={{ ...softCardStyle, flex: 1, overflowY: 'auto' }}>
           {loadingClients && (
             <div style={{ fontSize: 12, opacity: 0.7 }}>Loading clients…</div>
           )}
@@ -561,26 +609,23 @@ export default function Home() {
                 borderRadius: 9,
                 cursor: 'pointer',
                 fontSize: 13,
+                marginBottom: 4,
                 border:
                   selectedClientId === c.id
-                    ? '1px solid rgba(120,150,255,0.9)'
+                    ? '1px solid rgba(210,182,130,0.95)'
                     : '1px solid transparent',
                 background:
                   selectedClientId === c.id
-                    ? 'linear-gradient(135deg,rgba(91,140,255,0.22),rgba(162,107,255,0.35))'
-                    : 'rgba(10,10,32,0.8)'
+                    ? 'rgba(248,231,201,0.9)'
+                    : 'transparent'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontWeight: 500 }}>{c.name}</div>
-                  {(c.email || c.phone) && (
-                    <div style={{ fontSize: 11, opacity: 0.7 }}>
-                      {c.email || c.phone}
-                    </div>
-                  )}
+              <div style={{ fontWeight: 500 }}>{c.name}</div>
+              {(c.email || c.phone) && (
+                <div style={{ fontSize: 11, opacity: 0.7 }}>
+                  {c.email || c.phone}
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
@@ -596,35 +641,50 @@ export default function Home() {
 
       {/* MAIN */}
       <main style={mainStyle}>
-        {/* Top stats */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
-          <div style={{ ...cardStyle, flex: 1, minWidth: 210 }}>
-            <div style={{ fontSize: 11, opacity: 0.75 }}>Studio revenue (all clients)</div>
-            <div style={{ fontSize: 20, fontWeight: 650, marginTop: 4 }}>
+        {/* TOP ROW: Global + client summary */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
+          <div style={cardStyle}>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>Total studio budget</div>
+            <div style={{ fontSize: 22, fontWeight: 650, marginTop: 4 }}>
               ₹{globalStats.total.toFixed(0)}
             </div>
-            <div style={{ fontSize: 11, opacity: 0.75, marginTop: 4 }}>
-              Paid: <span style={{ color: '#33ff99' }}>₹{globalStats.paid.toFixed(0)}</span> ·
-              Pending: <span style={{ color: '#ffcc66' }}>₹{globalStats.pending.toFixed(0)}</span>
+            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
+              Received:{' '}
+              <span style={{ color: '#4f7c2a', fontWeight: 600 }}>
+                ₹{globalStats.received.toFixed(0)}
+              </span>{' '}
+              · Pending:{' '}
+              <span style={{ color: '#b06020', fontWeight: 600 }}>
+                ₹{globalStats.pending.toFixed(0)}
+              </span>
             </div>
           </div>
 
-          <div style={{ ...cardStyle, flex: 1, minWidth: 210 }}>
-            <div style={{ fontSize: 11, opacity: 0.75 }}>Current client</div>
+          <div style={cardStyle}>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>Current client</div>
             {selectedClient ? (
               <>
-                <div style={{ fontSize: 15, fontWeight: 600, marginTop: 4 }}>
+                <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>
                   {selectedClient.name}
                 </div>
-                <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>
+                <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
                   {selectedClient.email || selectedClient.phone || 'No contact info yet'}
                 </div>
-                <div style={{ fontSize: 11, opacity: 0.75, marginTop: 8 }}>Revenue for this client</div>
-                <div style={{ fontSize: 18, fontWeight: 600 }}>
-                  ₹{stats.totalRevenue.toFixed(0)}
+                <div style={{ fontSize: 12, opacity: 0.8, marginTop: 8 }}>
+                  Budget / payments
                 </div>
-                <div style={{ fontSize: 11, opacity: 0.75 }}>
-                  Paid: ₹{stats.totalPaid.toFixed(0)} · Pending: ₹{stats.totalPending.toFixed(0)}
+                <div style={{ fontSize: 14, marginTop: 4 }}>
+                  Total: <strong>₹{stats.total.toFixed(0)}</strong>
+                </div>
+                <div style={{ fontSize: 12 }}>
+                  Received:{' '}
+                  <span style={{ color: '#4f7c2a', fontWeight: 600 }}>
+                    ₹{stats.received.toFixed(0)}
+                  </span>{' '}
+                  · Pending:{' '}
+                  <span style={{ color: '#b06020', fontWeight: 600 }}>
+                    ₹{stats.pending.toFixed(0)}
+                  </span>
                 </div>
               </>
             ) : (
@@ -634,8 +694,8 @@ export default function Home() {
             )}
           </div>
 
-          <div style={{ ...cardStyle, flex: 1, minWidth: 210 }}>
-            <div style={{ fontSize: 11, opacity: 0.75 }}>Upcoming deadlines</div>
+          <div style={cardStyle}>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>Upcoming deadlines</div>
             {upcomingDeadlines.length === 0 ? (
               <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
                 No upcoming deadlines for this client.
@@ -644,8 +704,8 @@ export default function Home() {
               <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {upcomingDeadlines.map(p => (
                   <div key={p.id} style={{ fontSize: 12 }}>
-                    <span style={{ opacity: 0.85 }}>{p.name}</span>
-                    <span style={{ opacity: 0.65 }}> · {formatDate(p.deadline)}</span>
+                    <span>{p.name}</span>
+                    <span style={{ opacity: 0.7 }}> · {formatDate(p.deadline)}</span>
                   </div>
                 ))}
               </div>
@@ -653,16 +713,16 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Client form + Projects */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        {/* SECOND ROW: Client form + Projects */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 0.9fr) minmax(320px, 1.3fr)', gap: 12 }}>
           {/* Client form */}
-          <section style={{ ...cardStyle, flex: 0.9, minWidth: 280 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <section style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontSize: 14, fontWeight: 600 }}>
                 {clientForm.id ? 'Edit client' : 'New client'}
               </div>
               {clientForm.id && (
-                <span style={{ fontSize: 11, opacity: 0.7 }}>ID: {clientForm.id}</span>
+                <span style={{ fontSize: 11, opacity: 0.6 }}>ID: {clientForm.id}</span>
               )}
             </div>
             <form onSubmit={handleSaveClient}>
@@ -708,7 +768,7 @@ export default function Home() {
                 {clientForm.id && (
                   <button
                     type="button"
-                    style={subtleButtonStyle}
+                    style={dangerButtonStyle}
                     onClick={handleDeleteClient}
                   >
                     Delete
@@ -719,7 +779,7 @@ export default function Home() {
           </section>
 
           {/* Projects */}
-          <section style={{ ...cardStyle, flex: 1.4, minWidth: 320 }}>
+          <section style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontSize: 14, fontWeight: 600 }}>Projects</div>
               <div style={{ display: 'flex', gap: 6 }}>
@@ -740,15 +800,11 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Status filters */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-              {['all', ...STATUSES].map(s => {
-                const isActive = statusFilter === s;
-                const count =
-                  s === 'all'
-                    ? projects.length
-                    : projects.filter(p => p.status === s).length;
-                return (
+            {/* Filters */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, opacity: 0.8 }}>Work:</span>
+                {['all', ...WORK_STATUSES].map(s => (
                   <button
                     key={s}
                     type="button"
@@ -756,24 +812,45 @@ export default function Home() {
                     style={{
                       borderRadius: 999,
                       border: 'none',
-                      padding: '4px 10px',
+                      padding: '3px 9px',
                       fontSize: 11,
                       cursor: 'pointer',
-                      background: isActive
-                        ? 'rgba(120,160,255,0.25)'
-                        : 'rgba(255,255,255,0.05)',
-                      color: '#f0f0f0'
+                      background:
+                        statusFilter === s ? 'rgba(212,168,95,0.3)' : 'rgba(255,255,255,0.7)',
+                      color: '#5c3b18'
                     }}
                   >
-                    {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)} ({count})
+                    {s === 'all' ? 'All' : s.replace('_', ' ')}
                   </button>
-                );
-              })}
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, opacity: 0.8 }}>Payment:</span>
+                {['all', ...PAYMENT_STATUSES].map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setPaymentFilter(s)}
+                    style={{
+                      borderRadius: 999,
+                      border: 'none',
+                      padding: '3px 9px',
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      background:
+                        paymentFilter === s ? 'rgba(212,168,95,0.3)' : 'rgba(255,255,255,0.7)',
+                      color: '#5c3b18'
+                    }}
+                  >
+                    {s === 'all' ? 'All' : s}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 0.9fr) minmax(260px, 1.1fr)', gap: 12 }}>
               {/* Project form */}
-              <div style={{ flex: 1, minWidth: 240 }}>
+              <div style={softCardStyle}>
                 <form onSubmit={handleSaveProject}>
                   <div style={labelStyle}>Project name *</div>
                   <input
@@ -789,32 +866,65 @@ export default function Home() {
                     onChange={e => setProjectForm({ ...projectForm, type: e.target.value })}
                     placeholder="wedding, reel, event…"
                   />
-                  <div style={labelStyle}>Deadline</div>
-                  <input
-                    style={inputStyle}
-                    type="date"
-                    value={projectForm.deadline}
-                    onChange={e => setProjectForm({ ...projectForm, deadline: e.target.value })}
-                  />
-                  <div style={labelStyle}>Cost (₹)</div>
-                  <input
-                    style={inputStyle}
-                    type="number"
-                    value={projectForm.cost}
-                    onChange={e => setProjectForm({ ...projectForm, cost: e.target.value })}
-                  />
-                  <div style={labelStyle}>Status</div>
-                  <select
-                    style={inputStyle}
-                    value={projectForm.status}
-                    onChange={e => setProjectForm({ ...projectForm, status: e.target.value })}
-                  >
-                    {STATUSES.map(s => (
-                      <option key={s} value={s}>
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={labelStyle}>Deadline</div>
+                      <input
+                        style={inputStyle}
+                        type="date"
+                        value={projectForm.deadline}
+                        onChange={e => setProjectForm({ ...projectForm, deadline: e.target.value })}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={labelStyle}>Budget (₹)</div>
+                      <input
+                        style={inputStyle}
+                        type="number"
+                        value={projectForm.cost}
+                        onChange={e => setProjectForm({ ...projectForm, cost: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={labelStyle}>Advance (₹)</div>
+                      <input
+                        style={inputStyle}
+                        type="number"
+                        value={projectForm.advance}
+                        onChange={e => setProjectForm({ ...projectForm, advance: e.target.value })}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={labelStyle}>Payment status</div>
+                      <select
+                        style={inputStyle}
+                        value={projectForm.payment_status}
+                        onChange={e => setProjectForm({ ...projectForm, payment_status: e.target.value })}
+                      >
+                        {PAYMENT_STATUSES.map(s => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={labelStyle}>Work status</div>
+                    <select
+                      style={inputStyle}
+                      value={projectForm.work_status}
+                      onChange={e => setProjectForm({ ...projectForm, work_status: e.target.value })}
+                    >
+                      {WORK_STATUSES.map(s => (
+                        <option key={s} value={s}>
+                          {s.replace('_', ' ')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div style={labelStyle}>File / asset links</div>
                   <textarea
                     style={{ ...inputStyle, minHeight: 40 }}
@@ -824,7 +934,7 @@ export default function Home() {
                   />
                   <div style={labelStyle}>Notes</div>
                   <textarea
-                    style={{ ...inputStyle, minHeight: 60 }}
+                    style={{ ...inputStyle, minHeight: 50 }}
                     value={projectForm.notes}
                     onChange={e => setProjectForm({ ...projectForm, notes: e.target.value })}
                     placeholder="Changes, feedback, delivery notes…"
@@ -840,7 +950,7 @@ export default function Home() {
                     {projectForm.id && (
                       <button
                         type="button"
-                        style={subtleButtonStyle}
+                        style={dangerButtonStyle}
                         onClick={() => {
                           const p = projects.find(x => x.id === projectForm.id);
                           if (p) handleDeleteProject(p);
@@ -853,74 +963,102 @@ export default function Home() {
                 </form>
               </div>
 
-              {/* Project list */}
-              <div style={{ flex: 1.2, minWidth: 260, maxHeight: 360, overflow: 'auto' }}>
-                <table
-                  style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    fontSize: 12
-                  }}
-                >
-                  <thead>
-                    <tr style={{ position: 'sticky', top: 0, background: '#111122' }}>
-                      <th style={{ textAlign: 'left', padding: 6, borderBottom: '1px solid #333355' }}>Name</th>
-                      <th style={{ textAlign: 'left', padding: 6, borderBottom: '1px solid #333355' }}>Type</th>
-                      <th style={{ textAlign: 'right', padding: 6, borderBottom: '1px solid #333355' }}>₹</th>
-                      <th style={{ textAlign: 'left', padding: 6, borderBottom: '1px solid #333355' }}>Status</th>
-                      <th style={{ textAlign: 'left', padding: 6, borderBottom: '1px solid #333355' }}>Deadline</th>
-                      <th style={{ textAlign: 'center', padding: 6, borderBottom: '1px solid #333355' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProjects.length === 0 && (
+              {/* Project table */}
+              <div style={softCardStyle}>
+                <div style={{ maxHeight: 340, overflowY: 'auto' }}>
+                  <table
+                    style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      fontSize: 12
+                    }}
+                  >
+                    <thead>
                       <tr>
-                        <td colSpan="6" style={{ padding: 8, opacity: 0.7 }}>
-                          {selectedClient
-                            ? 'No projects match this filter.'
-                            : 'Select a client to view projects.'}
-                        </td>
+                        <th style={{ textAlign: 'left', padding: 6, borderBottom: '1px solid #e3d2b0' }}>Name</th>
+                        <th style={{ textAlign: 'left', padding: 6, borderBottom: '1px solid #e3d2b0' }}>₹</th>
+                        <th style={{ textAlign: 'left', padding: 6, borderBottom: '1px solid #e3d2b0' }}>Work</th>
+                        <th style={{ textAlign: 'left', padding: 6, borderBottom: '1px solid #e3d2b0' }}>Payment</th>
+                        <th style={{ textAlign: 'left', padding: 6, borderBottom: '1px solid #e3d2b0' }}>Due</th>
+                        <th style={{ textAlign: 'center', padding: 6, borderBottom: '1px solid #e3d2b0' }}>Actions</th>
                       </tr>
-                    )}
-                    {filteredProjects.map(p => {
-                      const isOverdue =
-                        p.deadline &&
-                        p.status !== 'paid' &&
-                        new Date(p.deadline) < new Date();
-                      return (
-                        <tr
-                          key={p.id}
-                          style={{
-                            borderBottom: '1px solid #26264a',
-                            background: isOverdue ? 'rgba(255,60,90,0.12)' : 'transparent'
-                          }}
-                        >
-                          <td style={{ padding: 6 }}>{p.name}</td>
-                          <td style={{ padding: 6 }}>{p.type || '-'}</td>
-                          <td style={{ padding: 6, textAlign: 'right' }}>{(p.cost || 0).toFixed(0)}</td>
-                          <td style={{ padding: 6 }}>
-                            <span style={statusBadgeStyle(p.status)}>{p.status}</span>
-                          </td>
-                          <td style={{ padding: 6 }}>{p.deadline ? formatDate(p.deadline) : '-'}</td>
-                          <td style={{ padding: 6, textAlign: 'center' }}>
-                            <button
-                              style={{ ...subtleButtonStyle, padding: '2px 8px', fontSize: 11 }}
-                              onClick={() => startEditProject(p)}
-                            >
-                              Edit
-                            </button>{' '}
-                            <button
-                              style={{ ...subtleButtonStyle, padding: '2px 8px', fontSize: 11 }}
-                              onClick={() => handleDeleteProject(p)}
-                            >
-                              ✕
-                            </button>
+                    </thead>
+                    <tbody>
+                      {filteredProjects.length === 0 && (
+                        <tr>
+                          <td colSpan="6" style={{ padding: 8, opacity: 0.7 }}>
+                            {selectedClient
+                              ? 'No projects match this filter.'
+                              : 'Select a client to view projects.'}
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      )}
+                      {filteredProjects.map(p => {
+                        const { cost, received, pending } = calcAmounts(p);
+                        const overdue =
+                          p.deadline &&
+                          p.payment_status !== 'paid' &&
+                          new Date(p.deadline) < new Date();
+                        return (
+                          <tr
+                            key={p.id}
+                            style={{
+                              borderBottom: '1px solid #f0e0c3',
+                              background: overdue ? 'rgba(255,224,210,0.6)' : 'transparent'
+                            }}
+                          >
+                            <td style={{ padding: 6 }}>
+                              <div style={{ fontWeight: 500 }}>{p.name}</div>
+                              <div style={{ fontSize: 11, opacity: 0.7 }}>
+                                {p.type || '-'}
+                              </div>
+                            </td>
+                            <td style={{ padding: 6 }}>
+                              <div style={{ fontSize: 12 }}>₹{cost.toFixed(0)}</div>
+                              <div style={{ fontSize: 11, opacity: 0.7 }}>
+                                Rec: ₹{received.toFixed(0)}
+                              </div>
+                            </td>
+                            <td style={{ padding: 6 }}>
+                              <span style={workBadgeStyle(p.work_status || 'not_started')}>
+                                {(p.work_status || 'not_started').replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td style={{ padding: 6 }}>
+                              <span style={paymentBadgeStyle(p.payment_status || 'unpaid')}>
+                                {p.payment_status || 'unpaid'}
+                              </span>
+                            </td>
+                            <td style={{ padding: 6 }}>
+                              <div style={{ fontSize: 12 }}>
+                                ₹{pending.toFixed(0)}
+                              </div>
+                              <div style={{ fontSize: 11, opacity: 0.7 }}>
+                                {p.deadline ? formatDate(p.deadline) : '-'}
+                              </div>
+                            </td>
+                            <td style={{ padding: 6, textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                style={{ ...subtleButtonStyle, padding: '2px 8px', fontSize: 11 }}
+                                onClick={() => startEditProject(p)}
+                              >
+                                Edit
+                              </button>{' '}
+                              <button
+                                type="button"
+                                style={{ ...dangerButtonStyle, padding: '2px 8px', fontSize: 11 }}
+                                onClick={() => handleDeleteProject(p)}
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </section>

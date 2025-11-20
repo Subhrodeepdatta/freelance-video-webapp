@@ -7,18 +7,18 @@ const containerStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'radial-gradient(circle at top, #191942 0, #050510 45%, #02020a 100%)',
-  color: '#f0f0f0',
+  background: 'radial-gradient(circle at top, #fbe9d4 0, #f7f0e5 40%, #f3e7d8 100%)',
+  color: '#2b2116',
   fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 };
 
 const cardStyle = {
-  background: 'rgba(6,6,22,0.96)',
-  borderRadius: 16,
-  padding: '22px 26px',
+  background: '#fffaf2',
+  borderRadius: 18,
+  padding: '24px 28px',
   width: 360,
-  boxShadow: '0 22px 55px rgba(0,0,0,0.65)',
-  border: '1px solid rgba(130,130,255,0.25)'
+  boxShadow: '0 18px 40px rgba(80,60,30,0.18)',
+  border: '1px solid rgba(210,182,130,0.7)'
 };
 
 const inputStyle = {
@@ -26,16 +26,16 @@ const inputStyle = {
   padding: '8px 10px',
   marginBottom: 10,
   borderRadius: 10,
-  border: '1px solid rgba(90,90,160,0.9)',
-  background: '#050518',
-  color: '#f0f0f0',
+  border: '1px solid rgba(191,161,110,0.9)',
+  background: '#fffdf7',
+  color: '#2b2116',
   fontSize: 13,
   boxSizing: 'border-box'
 };
 
 const buttonStyle = {
   width: '100%',
-  background: 'linear-gradient(135deg,#5b8cff,#a26bff)',
+  background: 'linear-gradient(135deg,#d4a85f,#c07b2a)',
   border: 'none',
   borderRadius: 999,
   padding: '9px 16px',
@@ -43,7 +43,8 @@ const buttonStyle = {
   cursor: 'pointer',
   fontSize: 14,
   fontWeight: 500,
-  marginTop: 4
+  marginTop: 4,
+  boxShadow: '0 8px 18px rgba(173, 126, 54, 0.35)'
 };
 
 export default function LoginPage() {
@@ -71,8 +72,8 @@ export default function LoginPage() {
   return (
     <div style={containerStyle}>
       <div style={cardStyle}>
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 20, fontWeight: 600 }}>Subh Stories Studio</div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 22, fontWeight: 650 }}>Subh Stories Studio</div>
           <div style={{ fontSize: 12, opacity: 0.75 }}>Private admin login</div>
         </div>
         <form onSubmit={handleSubmit}>
@@ -82,7 +83,7 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            placeholder="your@email.com"
+            placeholder="you@example.com"
           />
           <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 2 }}>Password</div>
           <input
