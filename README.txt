@@ -1,6 +1,20 @@
-Subh Stories CRM – Next.js + Supabase
+Subh Stories CRM – Next.js + Supabase (Professional Beige/Gold UI)
 
-TABLES (initial create if you don't have them yet):
+1. Install & run
+----------------
+- Put `.env.local` in the project root with:
+  NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_URL_HERE
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY_HERE
+
+- Install deps:
+  npm install
+
+- Run locally:
+  npm run dev
+
+2. Supabase tables
+------------------
+In Supabase SQL editor, run:
 
 -- CLIENTS
 create table if not exists public.clients (
@@ -29,10 +43,29 @@ create table if not exists public.projects (
   created_at timestamp with time zone default now()
 );
 
-If you already created `projects` before, you can add the new columns like this:
+If you already had a `projects` table, you can add missing columns:
 
 alter table public.projects add column if not exists work_status text;
 alter table public.projects add column if not exists payment_status text;
 alter table public.projects add column if not exists advance numeric default 0;
 
-For simple personal use, you can DISABLE RLS on these tables in Supabase UI.
+For simple personal use, you can DISABLE RLS (Row Level Security) on these tables.
+
+3. Auth
+-------
+- Go to Supabase -> Authentication -> Users and create an admin user with email/password.
+- Use those credentials to log in at `/login`.
+
+4. Routes
+---------
+- `/`  -> Main studio dashboard
+   - Graph-style view of revenue by client
+   - Overall totals (budget, received, pending)
+   - List of all clients with quick link to each client dashboard
+
+- `/clients/[id]`  -> Per-client dashboard
+   - Edit client info
+   - Add/edit/delete projects
+   - Separate work_status and payment_status
+   - Budget, advance, received and pending amount per project
+   - Invoice-style PDF export (logo area, client section, project table)
