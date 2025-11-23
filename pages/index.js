@@ -195,7 +195,7 @@ export default function DashboardHome() {
               Logged in as <span style={{ fontWeight: 500 }}>{userEmail}</span>
             </div>
             <button
-              type=\"button\"
+              type="button"
               style={{ ...subtleButtonStyle, marginTop: 6, padding: '4px 10px', fontSize: 12 }}
               onClick={signOut}
             >
@@ -277,7 +277,7 @@ export default function DashboardHome() {
             <div style={{ marginBottom: 8 }}>
               <input
                 style={{ ...inputStyle, maxWidth: 280 }}
-                placeholder=\"Search client…\"
+                placeholder="Search client…"
                 value={searchClient}
                 onChange={e => setSearchClient(e.target.value)}
               />
