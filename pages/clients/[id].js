@@ -524,14 +524,14 @@ export default function ClientDashboardPage() {
             </div>
             <div style={{ marginTop: 6, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button
-                type=\"button\"
+                type="button"
                 style={{ ...subtleButtonStyle, padding: '4px 10px', fontSize: 12 }}
                 onClick={() => router.push('/')}
               >
                 ← Main dashboard
               </button>
               <button
-                type=\"button\"
+                type="button"
                 style={{ ...subtleButtonStyle, padding: '4px 10px', fontSize: 12 }}
                 onClick={signOut}
               >
@@ -571,14 +571,14 @@ export default function ClientDashboardPage() {
             <div style={{ fontSize: 12, opacity: 0.8 }}>Quick actions</div>
             <div style={{ marginTop: 6, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button
-                type=\"button\"
+                type="button"
                 style={{ ...buttonStyle, padding: '6px 12px', fontSize: 12 }}
                 onClick={handleExportInvoice}
               >
                 Export invoice PDF
               </button>
               <button
-                type=\"button\"
+                type="button"
                 style={{ ...subtleButtonStyle, padding: '6px 12px', fontSize: 12 }}
                 onClick={resetProjectForm}
               >
@@ -631,42 +631,42 @@ export default function ClientDashboardPage() {
                 style={inputStyle}
                 value={clientForm.name}
                 onChange={e => setClientForm({ ...clientForm, name: e.target.value })}
-                placeholder=\"Client / brand name\"
+                placeholder="Client / brand name"
               />
               <div style={labelStyle}>Email</div>
               <input
                 style={inputStyle}
                 value={clientForm.email}
                 onChange={e => setClientForm({ ...clientForm, email: e.target.value })}
-                placeholder=\"client@email.com\"
+                placeholder="client@email.com"
               />
               <div style={labelStyle}>Phone</div>
               <input
                 style={inputStyle}
                 value={clientForm.phone}
                 onChange={e => setClientForm({ ...clientForm, phone: e.target.value })}
-                placeholder=\"+91…\"
+                placeholder="+91…"
               />
               <div style={labelStyle}>Logo / Photo URL</div>
               <input
                 style={inputStyle}
                 value={clientForm.logo_path}
                 onChange={e => setClientForm({ ...clientForm, logo_path: e.target.value })}
-                placeholder=\"https://…\"
+                placeholder="https://…"
               />
               <div style={labelStyle}>Notes</div>
               <textarea
                 style={{ ...inputStyle, minHeight: 70 }}
                 value={clientForm.notes}
                 onChange={e => setClientForm({ ...clientForm, notes: e.target.value })}
-                placeholder=\"Client preferences, tone, brand info…\"
+                placeholder="Client preferences, tone, brand info…"
               />
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button type=\"submit\" style={buttonStyle} disabled={savingClient}>
+                <button type="submit" style={buttonStyle} disabled={savingClient}>
                   {savingClient ? 'Saving…' : 'Save client'}
                 </button>
                 <button
-                  type=\"button\"
+                  type="button"
                   style={dangerButtonStyle}
                   onClick={handleDeleteClient}
                 >
@@ -681,7 +681,7 @@ export default function ClientDashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontSize: 14, fontWeight: 600 }}>Projects</div>
               <button
-                type=\"button\"
+                type="button"
                 style={{ ...subtleButtonStyle, padding: '4px 10px', fontSize: 12 }}
                 onClick={resetProjectForm}
               >
@@ -696,7 +696,7 @@ export default function ClientDashboardPage() {
                 {['all', ...WORK_STATUSES].map(s => (
                   <button
                     key={s}
-                    type=\"button\"
+                    type="button"
                     onClick={() => setStatusFilter(s)}
                     style={{
                       borderRadius: 999,
@@ -718,7 +718,7 @@ export default function ClientDashboardPage() {
                 {['all', ...PAYMENT_STATUSES].map(s => (
                   <button
                     key={s}
-                    type=\"button\"
+                    type="button"
                     onClick={() => setPaymentFilter(s)}
                     style={{
                       borderRadius: 999,
@@ -752,14 +752,14 @@ export default function ClientDashboardPage() {
                     style={inputStyle}
                     value={projectForm.name}
                     onChange={e => setProjectForm({ ...projectForm, name: e.target.value })}
-                    placeholder=\"Wedding film, Instagram reel…\"
+                    placeholder="Wedding film, Instagram reel…"
                   />
                   <div style={labelStyle}>Type</div>
                   <input
                     style={inputStyle}
                     value={projectForm.type}
                     onChange={e => setProjectForm({ ...projectForm, type: e.target.value })}
-                    placeholder=\"wedding, reel, event…\"
+                    placeholder="wedding, reel, event…"
                   />
 
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -767,7 +767,7 @@ export default function ClientDashboardPage() {
                       <div style={labelStyle}>Deadline</div>
                       <input
                         style={inputStyle}
-                        type=\"date\"
+                        type="date"
                         value={projectForm.deadline}
                         onChange={e => setProjectForm({ ...projectForm, deadline: e.target.value })}
                       />
@@ -776,7 +776,7 @@ export default function ClientDashboardPage() {
                       <div style={labelStyle}>Budget (₹)</div>
                       <input
                         style={inputStyle}
-                        type=\"number\"
+                        type="number"
                         value={projectForm.cost}
                         onChange={e => setProjectForm({ ...projectForm, cost: e.target.value })}
                       />
@@ -788,7 +788,7 @@ export default function ClientDashboardPage() {
                       <div style={labelStyle}>Advance (₹)</div>
                       <input
                         style={inputStyle}
-                        type=\"number\"
+                        type="number"
                         value={projectForm.advance}
                         onChange={e => setProjectForm({ ...projectForm, advance: e.target.value })}
                       />
@@ -829,7 +829,7 @@ export default function ClientDashboardPage() {
                     style={{ ...inputStyle, minHeight: 40 }}
                     value={projectForm.file_links}
                     onChange={e => setProjectForm({ ...projectForm, file_links: e.target.value })}
-                    placeholder=\"Drive links, folder locations, etc.\"
+                    placeholder="Drive links, folder locations, etc."
                   />
 
                   <div style={labelStyle}>Notes</div>
@@ -837,11 +837,11 @@ export default function ClientDashboardPage() {
                     style={{ ...inputStyle, minHeight: 50 }}
                     value={projectForm.notes}
                     onChange={e => setProjectForm({ ...projectForm, notes: e.target.value })}
-                    placeholder=\"Changes, feedback, delivery notes…\"
+                    placeholder="Changes, feedback, delivery notes…"
                   />
 
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    <button type=\"submit\" style={buttonStyle} disabled={savingProject || !client}>
+                    <button type="submit" style={buttonStyle} disabled={savingProject || !client}>
                       {savingProject
                         ? 'Saving…'
                         : projectForm.id
@@ -850,7 +850,7 @@ export default function ClientDashboardPage() {
                     </button>
                     {projectForm.id && (
                       <button
-                        type=\"button\"
+                        type="button"
                         style={dangerButtonStyle}
                         onClick={() => {
                           const p = projects.find(x => x.id === projectForm.id);
@@ -887,7 +887,7 @@ export default function ClientDashboardPage() {
                     <tbody>
                       {filteredProjects.length === 0 && (
                         <tr>
-                          <td colSpan=\"6\" style={{ padding: 8, opacity: 0.7 }}>
+                          <td colSpan="6" style={{ padding: 8, opacity: 0.7 }}>
                             {client
                               ? 'No projects match this filter.'
                               : 'Client loading…'}
@@ -940,18 +940,18 @@ export default function ClientDashboardPage() {
                             </td>
                             <td style={{ padding: 6, textAlign: 'center' }}>
                               <button
-                                type=\"button\"
+                                type="button"
                                 style={{ ...subtleButtonStyle, padding: '2px 8px', fontSize: 11 }}
                                 onClick={() => startEditProject(p)}
                               >
                                 Edit
                               </button>{' '}
                               <button
-                                type=\"button\"
+                                type="button"
                                 style={{ ...dangerButtonStyle, padding: '2px 8px', fontSize: 11 }}
                                 onClick={() => handleDeleteProject(p)}
                               >
-                                ✕
+                                
                               </button>
                             </td>
                           </tr>
